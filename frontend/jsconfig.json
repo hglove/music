@@ -1,0 +1,7 @@
+{
+  "vue": {
+    "compilerOptions": {
+      "isCustomElement": false
+    }
+  }
+}

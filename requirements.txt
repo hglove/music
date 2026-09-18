@@ -1,0 +1,7 @@
+# 依赖说明
+#
+# 后端只用 Python 标准库 + Windows PowerShell WinRT，不再需要 pip 装 fastapi / winrt。
+# 当前环境是 Python 3.15 beta，很多包没有现成 wheel，pip 编译会失败（pyyaml ACCESS_VIOLATION）。
+#
+# 可选（有稳定 Python 3.11/3.12 时再装）：
+#   pywebview>=5.3.0     # 无边框桌面窗口；没有则自动改用浏览器

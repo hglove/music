@@ -1,0 +1,1 @@
+[MusicWidget 14:14:35] SMTC PowerShell exited

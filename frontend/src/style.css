@@ -1,0 +1,49 @@
+:root {
+  /* --accent* are overwritten at runtime by theme.js from the cover's dominant colour.
+     These defaults match theme.js's fallback hue (38) so the first paint already fits. */
+  --bg: #f4f5f8;
+  --accent: hsl(38 82% 42%);
+  --accent-2: hsl(64 82% 34%);
+  --accent-glow: hsl(38 82% 45% / 0.32);
+  --accent-soft: hsl(38 82% 45% / 0.13);
+  --accent-deep: hsl(38 45% 90%);
+
+  --glass-bg: rgba(255,255,255,0.62);
+  --glass-hi: rgba(255,255,255,0.88);
+  --glass-border: rgba(20,26,38,0.09);
+
+  --text: #171a21;
+  --text-dim: rgba(23,26,33,0.58);
+  --text-faint: rgba(23,26,33,0.36);
+
+  --shadow-soft: 0 14px 40px rgba(21,28,42,0.12);
+  --shadow-lift: 0 18px 46px rgba(21,28,42,0.18);
+
+  --radius-lg: 20px;
+  --radius-md: 12px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #app {
+  height: 100%;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-synthesis: none;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button { font: inherit; }
