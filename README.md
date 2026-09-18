@@ -37,12 +37,13 @@
 - **前端**: Vue 3 + Vite + Three.js
 - **后端**: Python 标准库 HTTP + WebSocket（`wshttp.py`）
 - **系统 API**: Windows SMTC（`smtc.ps1` PowerShell WinRT）
-- **窗口**: 默认系统浏览器（可选 pywebview）
+- **窗口**: 打包版用 pywebview + WebView2 的原生无边框窗口；源码版没装 pywebview 时退回系统浏览器
 
 ## 环境
 
 - Windows 10 / 11
-- Python 3.11+（3.15 也可以，不需要额外 pip 包）
+- Python 3.11+ 跑源码（3.15 也可以，不需要额外 pip 包）
+- **Python 3.12** 打包 exe —— 窗口用的 pywebview 依赖 pythonnet 3.x，而它最高只支持 3.12
 - Node.js 18+
 
 ## 运行
@@ -82,9 +83,12 @@ python main.py --port 8765
 ```
 python-vue/
 ├── run.bat              # 一键启动（失败会 pause，不再闪退）
-├── main.py              # 启动服务并打开浏览器
+├── build_exe.bat        # 打包成单文件 exe（固定用 Python 3.12）
+├── music.spec           # PyInstaller 配置（含要打进包的数据文件清单）
+├── main.py              # 启动服务并打开窗口（没有 pywebview 时退回浏览器）
 ├── server.py            # HTTP + WebSocket
 ├── wshttp.py            # 标准库 HTTP/WebSocket
+├── paths.py             # 资源定位（源码运行与打包后共用）
 ├── smtc.py              # SMTC 轮询（调用 PowerShell）
 ├── smtc.ps1             # Windows SMTC
 ├── lyrics.py            # lrclib + 网易云歌词、网易云封面、歌曲时长
@@ -98,6 +102,49 @@ python-vue/
     ├── src/lyrics.js
     └── src/socket.js
 ```
+
+## 打包成 exe
+
+双击 `build_exe.bat`，产物在 `dist\XiaoyuMusic.exe`。**单文件**，拷到别的 Windows
+电脑上直接双击就能跑，那台机器不用装 Python 和 Node。
+
+打出来的就是一个真正的桌面应用：双击**直接弹出无边框窗口**，没有控制台黑框，也不经过浏览器。
+
+打包环境必须是 **Python 3.12**（脚本会优先找 `py -3.12`）：窗口由 pywebview 提供，而它依赖的
+pythonnet 3.x 最高只支持 3.12，更高版本 pip 只能拿到需要现场编译的源码包。找不到 3.12 时脚本会
+直接报错并给出安装命令，而不是悄悄打出一个只会开浏览器的包。
+
+手动等价于：
+
+```bash
+cd frontend && npm install && npm run build && cd ..
+py -3.12 -m pip install pyinstaller pywebview
+py -3.12 -m PyInstaller music.spec --noconfirm --clean
+```
+
+### 打包版和源码版的行为差别
+
+- 打包版开**原生窗口**；源码版没装 pywebview 时会退回系统浏览器（`python main.py --browser` 可强制）。
+- 每次启动会先解压到临时目录，比源码版慢一两秒。
+- 前端是打进包里的，**改完前端必须重新打包**才生效。
+- 打出来的是 exe 而不是安装包：没有开始菜单项、没有卸载程序，删掉文件就没了。
+- 后端仍然跑在**本机**（要读本机 SMTC），所以它不是一个能放到服务器上的东西。
+- 运行日志写在 `%LOCALAPPDATA%\XiaoyuMusic\app.log`。窗口版没有控制台，出问题先看这里。
+
+### 几个坑
+
+- **装不上 pywebview**：几乎都是 Python 版本过高（它依赖的 pythonnet 3.x 到 3.12 为止）。
+  `build_exe.bat` 已经会自己挑 3.12，手动打包时别换成别的版本。
+- **目标机器要有 WebView2 运行时**：Win11 自带，Win10 一般随 Edge 装好了。真缺了的话程序会
+  退回开浏览器，并在日志里记一条 `Desktop window failed`。
+- **想要中文 exe 名**：直接重命名 `dist\XiaoyuMusic.exe` 就行，单文件 exe 改名不影响运行。
+  spec 里用 ASCII 名是为了避开打包日志和杀软对宽字符文件名的兼容问题。
+- **杀软误报**：PyInstaller 的包常被拦，已经关掉 UPX 压缩降低概率，真被拦就加白名单。
+- **`music.spec` 的 `datas` 不能漏**：少了 `smtc.ps1` 就没有捕获功能，少了 `frontend/dist`
+  页面会显示「请先构建 Vue 前端」。打包后这些文件在临时解压目录里，靠 `paths.resource_root()`
+  定位 —— 所以任何新增的资源路径都要走它，不能再用 `__file__`。
+- **`excludes` 里不能有 `webview`**：它在 `hiddenimports` 里，是窗口本体；被排除掉就只剩
+  浏览器兜底了。
 
 ## 图标
 

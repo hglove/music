@@ -6,13 +6,14 @@ import logging
 import subprocess
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
+
+from paths import resource_root
 
 log = logging.getLogger("music.smtc")
 
 EventHandler = Callable[[dict[str, Any]], Awaitable[None]]
-PS_SCRIPT = Path(__file__).resolve().with_name("smtc.ps1")
+PS_SCRIPT = resource_root() / "smtc.ps1"
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 

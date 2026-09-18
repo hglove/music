@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from lyrics import LyricsFetcher, estimate_duration
+from paths import resource_root
 from smtc import SmtcMonitor
 from wshttp import WebSocket, serve
 
@@ -17,8 +18,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-ROOT = Path(__file__).resolve().parent
-DIST_DIR = ROOT / "frontend" / "dist"
+DIST_DIR = resource_root() / "frontend" / "dist"
 
 FALLBACK_HTML = """<!DOCTYPE html><html><head><meta charset='UTF-8'><style>
 *{margin:0;padding:0;box-sizing:border-box}

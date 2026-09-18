@@ -156,6 +156,36 @@ function closeWindow() {
   window.close()
 }
 
+/* ---------- window controls ----------
+   窗口是无边框的，Windows 既不给标题栏也不给可拖拽的边框，所以顶栏那几个按钮和模板里
+   渲染的 8 个边缘手柄就是替代品，下面只是把它们转发给后端。 */
+const RESIZE_DIRECTIONS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
+const isMaximized = ref(false)
+
+function windowApi() {
+  return window.pywebview?.api
+}
+
+function minimizeWindow() {
+  windowApi()?.minimize?.()
+}
+
+async function toggleMaximize() {
+  const api = windowApi()
+  if (!api?.toggle_maximize) return
+  isMaximized.value = await api.toggle_maximize()
+}
+
+function startResize(e, direction) {
+  const api = windowApi()
+  if (isMaximized.value || e.button !== 0 || !api?.start_resize) return
+  // 这里不接管拖动：后端会把这次按下伪装成 WM_NCLBUTTONDOWN，由 Windows 自己的
+  // 缩放循环跟踪鼠标。页面在拖动过程中收不到任何事件，这正是想要的结果——
+  // 之前用 pointermove 逐帧算尺寸时，窗口跟不上光标，光标一跑出窗口拖动就断了。
+  e.preventDefault()
+  api.start_resize(direction)
+}
+
 function trackRatio(e) {
   const rect = progressTrackRef.value.getBoundingClientRect()
   if (!rect.width) return 0
@@ -244,15 +274,35 @@ onUnmounted(() => {
   <canvas ref="canvasRef" class="fx-canvas"></canvas>
 
   <header class="topbar">
-    <span class="brand">
+    <span class="brand pywebview-drag-region">
       <i class="brand-dot" :class="{ live: playing }"></i>
       <span class="brand-text">小雨音乐控制器</span>
     </span>
-    <button class="topbar-close" title="关闭" @click="closeWindow">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M6.4 6.4 17.6 17.6M17.6 6.4 6.4 17.6" />
-      </svg>
-    </button>
+    <div class="window-actions">
+      <button class="topbar-btn" title="最小化" @click="minimizeWindow">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 12h12" />
+        </svg>
+      </button>
+      <button
+        class="topbar-btn"
+        :title="isMaximized ? '向下还原' : '最大化'"
+        @click="toggleMaximize"
+      >
+        <svg v-if="isMaximized" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4.8" y="8.4" width="10.2" height="10.2" rx="1.6" />
+          <path d="M8.2 8.4V5.6a1.6 1.6 0 0 1 1.6-1.6h8a1.6 1.6 0 0 1 1.6 1.6v8a1.6 1.6 0 0 1-1.6 1.6h-2.8" />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="5.4" y="5.4" width="13.2" height="13.2" rx="1.8" />
+        </svg>
+      </button>
+      <button class="topbar-close" title="关闭" @click="closeWindow">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6.4 6.4 17.6 17.6M17.6 6.4 6.4 17.6" />
+        </svg>
+      </button>
+    </div>
   </header>
 
   <main class="main-body">
@@ -326,6 +376,15 @@ onUnmounted(() => {
       </div>
     </div>
   </footer>
+
+  <div
+    v-for="direction in RESIZE_DIRECTIONS"
+    v-show="!isMaximized"
+    :key="direction"
+    class="resize-grip"
+    :class="direction"
+    @pointerdown="startResize($event, direction)"
+  ></div>
 </template>
 
 <style scoped>
@@ -440,6 +499,9 @@ onUnmounted(() => {
   gap: 10px;
   flex: 1;
   cursor: move;
+  /* 下面两个属性是 Electron 的，WebView2 完全不认 —— 真正让窗口跟着动的，是元素上的
+     pywebview-drag-region class（pywebview 的 customize.js 会从点击目标往上找最近的
+     匹配元素，所以关闭按钮在自己的规则里天然被排除，不会连窗口一起拖走）。 */
   -webkit-app-region: drag;
   app-region: drag;
 }
@@ -492,6 +554,105 @@ onUnmounted(() => {
 .topbar-close:hover {
   background: rgba(214,58,58,.12);
   color: #cf3b3b;
+}
+.window-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.topbar-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background .18s var(--ease), color .18s var(--ease);
+  flex-shrink: 0;
+}
+.topbar-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.topbar-btn:hover {
+  background: rgba(23,26,33,.08);
+  color: var(--text);
+}
+
+/* ---------- window resize grips ----------
+   无边框窗口没有系统边框可拖，这 8 条贴在四边和四角的透明带子就是替代品。
+   z-index 高于页面上所有内容，所以最外圈那几个像素优先算缩放边而不是拖动区，
+   和原生窗口的手感一致。 */
+.resize-grip {
+  position: fixed;
+  z-index: 60;
+}
+.resize-grip.n,
+.resize-grip.s {
+  left: 10px;
+  right: 10px;
+  height: 10px;
+}
+.resize-grip.w,
+.resize-grip.e {
+  top: 10px;
+  bottom: 10px;
+  width: 10px;
+}
+.resize-grip.nw,
+.resize-grip.ne,
+.resize-grip.sw,
+.resize-grip.se {
+  width: 18px;
+  height: 18px;
+}
+.resize-grip.n {
+  top: 0;
+  /* 比其他边窄：顶栏上的按钮高 30px、居中于 44px 高的顶栏，上沿从第 7px 才开始，
+     再厚就会把按钮最上面那几个像素抢过来当缩放边。 */
+  height: 8px;
+  cursor: ns-resize;
+}
+.resize-grip.s {
+  bottom: 0;
+  cursor: ns-resize;
+}
+.resize-grip.w {
+  left: 0;
+  cursor: ew-resize;
+}
+.resize-grip.e {
+  right: 0;
+  cursor: ew-resize;
+}
+.resize-grip.nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.resize-grip.ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.resize-grip.sw {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+.resize-grip.se {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
 }
 
 /* ---------- album + meta ---------- */

@@ -3,5 +3,10 @@
 # 后端只用 Python 标准库 + Windows PowerShell WinRT，不再需要 pip 装 fastapi / winrt。
 # 当前环境是 Python 3.15 beta，很多包没有现成 wheel，pip 编译会失败（pyyaml ACCESS_VIOLATION）。
 #
-# 可选（有稳定 Python 3.11/3.12 时再装）：
-#   pywebview>=5.3.0     # 无边框桌面窗口；没有则自动改用浏览器
+# 打包 exe 必需，且必须装在 Python 3.12 里：
+#   pywebview>=5.3.0     # 无边框桌面窗口 —— 打包版靠它出窗口，不是开浏览器
+#
+# pywebview 依赖的 pythonnet 3.x 最高只支持到 Python 3.12，更高的版本 pip 只会退回
+# 需要现场编译的 pythonnet 2.5.2。所以 build_exe.bat 固定挑 py -3.12。
+#
+# 源码运行仍然是可选的：没装 pywebview 时 main.py 会自动改用系统浏览器。
